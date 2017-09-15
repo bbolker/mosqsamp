@@ -1,0 +1,7 @@
+one of the multinomial expressions (on bird vector V) is straightforward
+to explain (mosquitoes are biting birds at random with a given probability p);
+the other (???) is going to give sampling probabilities for the number of
+ways of achieving that (since V is unordered)
+
+The B^M can be thought of just as a normalization constant, or may be able
+to think of it as the total number of ensembles
