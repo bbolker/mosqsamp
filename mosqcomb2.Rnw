@@ -1,0 +1,738 @@
+\documentclass{article}
+\usepackage{sober}
+\usepackage{hyperref}
+\usepackage[english]{babel}
+\usepackage{amsmath}
+\usepackage{natbib}
+\newcommand{\code}[1]{{\tt #1}}
+\newcommand{\multinom}{{\cal M}}
+\date{\today}
+\title{Mosquito combinatorics (occupancy spectrum)}
+\author{Ben Bolker, with help from Leonid Bogachev,
+  Ethan Bolker, and Ira Gessel}
+\begin{document}
+\bibliographystyle{chicago}
+
+\maketitle
+
+\textbf{Version: \Sexpr{date()}}
+
+<<setup,echo=FALSE,warning=FALSE,message=FALSE>>=
+library(knitr)
+opts_chunk$set(fig.height=4,fig.width=5,
+                      out.width="0.8\\textwidth",
+               error=FALSE)
+knit_hooks$set(
+                 basefig=function(before, options, envir) {
+                     if (before) {
+                         par(bty="l",las=1)
+                     } else { }
+                 })
+@ 
+
+\section{Preliminaries}
+
+<<pkgs,message=FALSE>>=
+library(rbenchmark)
+library(plyr) ## for laply
+library(plotrix)
+library(reshape2)
+library(abind)
+library(ggplot2); theme_set(theme_bw())
+  ## tweak to squash panels togethe
+zmargin <- theme(panel.spacing=grid::unit(0,"lines"))
+library(grid)
+library(numDeriv)
+@ 
+\section{Introduction}
+Suppose $B$=number of birds (bins); $M$=number of mosquitoes (balls).
+$V$ is (unordered) occupancy of a particular configuration
+(e.g. $\{3,1,1,0\}$ means one bird sampled three times, two
+birds sampled once, one bird not sampled);
+$S=\{s_i\}$=occupancy spectrum (number of birds sampled $i$ times,
+e.g. $S=\{1,2,0,1\}$ for the previous example).
+The number of birds sampled at least once is 
+$K=B-s_0=B-\sum_{i=1} s_i$.
+
+We have $\sum s_i=B$, $\sum i s_i = M$.
+
+Define the multinomial coefficient $\multinom(S) \equiv 
+\binom{(\sum s_i)!}{\prod s_i!}$.
+
+Then the likelihood of observing an occupancy spectrum $S$ is
+\begin{equation}
+P(S|B,M) =  \frac{1}{B^M} \multinom(S) \multinom(V)
+\end{equation}
+where $\multinom(V)$ can also be written as
+$M!/\prod_i (i!)^{s_i}$.
+
+These are standard \emph{Maxwell-Boltzmann} statistics (as opposed
+to some of the previous formulae, which were essentially Einstein-Bose
+type, incorrectly [for this problem] treating some configurations
+as equivalently).
+
+\section{Code}
+\subsection{Analytical formula}
+The following functions implement this idea
+(allowing for the possibility of returning
+the log-probability, and allowing the possibility
+of specifying the occupancy spectrum with the $s_0$
+element excluded --- and filling it in using $s_0=B-K$).
+<<mfuns>>=
+## multinomial coefficient
+mchoose <- function(n,log=FALSE) {
+    m <- lfactorial(sum(n))-sum(lfactorial(n))
+    if (log) m else exp(m)
+}
+occprob <- function(n,B,M,log=FALSE,add.zero=TRUE) {
+    if (add.zero) nx <- c(B-sum(n),n) else {
+        nx <- n; n <- n[-1]
+    }
+    r <- -M*log(B)+mchoose(nx,log=TRUE)+
+        lfactorial(M)-sum(n*lfactorial(seq_along(n)))
+    if (log) r else exp(r)
+}
+@ 
+
+\subsection{Simulation}
+I simulated one realization of the process by
+sampling birds with replacement and counting the number of occurrences
+of each bird.
+
+This can be done using \code{sample()} and then tabulating the results:
+<<sim1>>=
+rfun0 <- function(B,M) table(factor(sample(1:B,size=M,replace=TRUE),levels=1:B))
+@ 
+(if I omitted the \code{factor(...,levels=1:B)} statement
+I would get a table without zeros/unsampled birds included).
+
+Equivalently one can draw a multinomial sample:
+<<sim2>>=
+rfun <- function(B,M) { c(rmultinom(1,size=M,prob=rep(1,B))) }
+@ 
+
+It turns out the latter is much faster, as indicated
+by the following benchmark:
+<<mbenchmark,echo=FALSE,cache=TRUE>>=
+benchmark(rfun(1000,50),rfun0(1000,50),
+          columns = c("test", "replications", "elapsed", "relative"),
+          replications=1000)
+@ 
+
+We may want to collapse these samples to occupancy spectra, e.g.
+<<simt>>=
+set.seed(101)
+B <- 7; M <- 5
+s <- rfun(B,M)
+table(factor(s,levels=0:M))
+@ 
+
+A function to tabulate $S$ and optionally collapse the result
+to a dot-separated string:
+<<sim3>>=
+sfun <- function(B,M,collapse=TRUE) {
+    tt <- table(factor(rfun(B,M),levels=0:M))
+    if (!collapse) tt else paste(tt,collapse=".")
+}
+@ 
+
+\subsection{Examples}
+Try this out for a trivial example ($B=4$, $M=2$).
+<<ex1>>=
+B <- 4; M <- 2
+S <- list(c(3,0,1),c(2,2,0))
+sapply(S,occprob,B=B,M=M,add.zero=FALSE)
+@ 
+
+Run 1000 simulations and tabulate:
+<<ex1sim>>=
+r <- replicate(1000,sfun(B,M))
+table(r)/1000
+@ 
+
+These match.
+
+Now a slightly larger example:
+<<ex2>>=
+B <- 6; M <- 3
+## enumerate possible occupancy spectra:
+S <- list(c(3,3,0),c(4,1,1),c(5,0,0,1))
+sapply(S,occprob,B=B,M=M,add.zero=FALSE)
+@ 
+
+<<ex2sim,cache=TRUE>>=
+nsim <- 2000
+table(replicate(nsim,sfun(B,M)))/nsim
+@ 
+
+Pretty good match.  One more try:
+
+<<ex3>>=
+M <- 7; B <- 5
+nsim <- 5000
+(tt <- table(replicate(nsim,sfun(B,M)))/nsim)
+@ 
+<<ex3an>>=
+## utility function: x.y.z format -> numeric vector
+spec2num <- function(x) lapply(strsplit(x,"\\."),as.numeric)
+## get occupancy spectra from names of sim table ...
+S <- spec2num(names(tt))  
+est.p <- sapply(S,occprob,B=B,M=M,add.zero=FALSE)
+@ 
+
+<<ex3plot,echo=FALSE>>=
+ggplot(data.frame(estimated=est.p,observed=c(tt)),
+       aes(x=estimated,y=observed))+
+    geom_point()+
+    scale_x_log10()+scale_y_log10()+
+    geom_abline(intercept=0,slope=1)+expand_limits(x=0.001)
+@ 
+
+\section{Fitting}
+
+\subsection{Preliminaries}
+<<sourcefuns>>=
+source("mosqfuns2.R")
+@ 
+The only part of the log-likelihood
+that depends on $B$ (or $s_0$, which implicitly depends on $B$
+via $s_0=B-K$) is
+$$
+-M \log B + \log B! - \log (B-K)!
+$$
+In other words, $K$ is a sufficient statistic for estimating $B$ 
+by maximum likelihood.  (Alternatively, we can estimate $B$ via
+the method of moments, since we can calculate an expected value for
+$K$: the answers turn out to be quite similar.)
+
+We will try four different estimates: two depend (only) on $K$,
+one on the probability of doublets ($W$), one on the time to
+first collision $\tau_0$.  In each case we will compute the
+probability distribution of the summary statistic for
+$B=40$, $M=20$, calculate the estimated value of $B$ for each
+value of the summary statistic, and calculate bias, variance,
+and mean-squared error for the estimate.
+
+First simulate probability distributions of $W$, $K$, $\tau_0$.
+<<Kfun>>=
+Kfun <- function(B,M) {
+    unname(B-sfun(B,M,collapse=FALSE)[1])
+}
+@ 
+
+Compute doublets:
+<<doublet_calc>>=
+Wfun <- function(B,M) {
+    r <- rfun(B,M)
+    mean(r*(r-1))
+}
+@ 
+
+Compute time of first collision:
+<<first_collision>>=
+Cfun <- function(B,ssize=2*B) {
+    ss <- sample(B,size=ssize,replace=TRUE)
+    min(which(duplicated(ss)))
+}
+@ 
+<<simsetup>>=
+nsim <- 1000; M <- 20; B <- 40
+Kvec <- replicate(nsim,Kfun(B,M))
+Wvec <- replicate(nsim,Wfun(B,M))
+Cvec <- replicate(nsim,Cfun(B))
+@ 
+
+<<Ktab,basefig=TRUE>>=
+Ktab <- table(Kvec)/nsim
+plot(Ktab)
+Kvec2 <- as.numeric(names(Ktab))
+@ 
+
+<<estres>>=
+estres <- matrix(NA,nrow=4,ncol=3,
+                 dimnames=list(c("MM","MLE","doublets","collision"),
+                 c("bias","var","MSE")))
+@ 
+
+\subsection{Method of moments}
+
+Based on binomial or Poisson approximations,
+we should have the expected value of $K$ ($\hat K$) equal to
+approximately $B(1-(1-(1/B))^M)$, or (in another approximation,
+based on $M$, $B$ both large) $B(1-\exp(-M/B))$ (or even more
+approximately) $M$: the last one recovers the case where $B \gg M$,
+so we expected each mosquito to bite a different bird \ldots
+
+The \verb+Bhat_approx+ function implements a root-finding
+solution to find a method-of-moments estimate for $B$ based on known
+$K$ and $M$.
+
+
+<<Bhat>>=
+B_true <- 40
+Bhat_mm <- sapply(Kvec2[Kvec2<20],Bhat_approx,M=20)
+B_mean_mm <- sum(Bhat_mm*Ktab[Kvec2<20])
+estres["MM","bias"] <- bias_mm <- B_mean_mm -B_true
+estres["MM","var"] <- sum((Bhat_mm-B_mean_mm)^2*Ktab[Kvec2<20])
+estres["MM","MSE"] <- sum((Bhat_mm-B_true)^2*Ktab[Kvec2<20])
+@ 
+
+\subsection{MLE/likelihood ratio test}
+We can compute $P(B+1)/P(B)$ (and get a relatively simple
+expression that we try to equate to 1), or by brute force:
+
+<<basefig=TRUE,echo=FALSE,message=FALSE>>=
+M <- 20; K <- 16
+curve(nllfun(x,K=K,M=M),from=log(K),5,
+      ylab="negative log-likelihood",xlab=~log(B))
+ff <- fitB(K,M)
+abline(v=ff$fit)
+pu <- par("usr")
+rect(ff$confint[1],pu[3],ff$confint[2],pu[4],
+     col=rgb(0,0,0,alpha=0.3),border=NA)
+@ 
+
+The gray region shows the 95\% LRT confidence intervals
+($B$ such that $-\log L < -\log L_{\mbox{\small min}} + 1.92$).
+Note we seem to have a computational
+problem for these functions when evaluating the log-likelihood
+for $\log B > 33$,
+because $K/B \ll 1$. However, we really
+should never be dealing with host population sizes
+as large as $e^{33}$=\Sexpr{exp(33)}!
+
+
+<<lboundfun>>=
+## for lower bound when K=100
+lboundfun <- function(M) {
+    uniroot(function(x) nllfun(x,K=M,M=M)-1.92,
+            interval=c(log(M+0.001),25))$root
+}
+ffun <- function(K,M) {
+    if (K<M) {
+        f <- try(fitB(K,M),silent=TRUE)
+        if (inherits(f,"try-error")) rep(NA,3) else unlist(f)
+    } else {
+        c(NA,lboundfun(M),NA)
+    }
+}
+@ 
+<<simrun,cache=TRUE,warning=FALSE>>=
+rfit <- laply(Kvec2,ffun,M=20)
+@ 
+(We get \code{NA} if $K=M$ --- of course, since
+in this case $\hat B \to \infty$ --- although we should
+still be able to get a lower bound in this case and hence
+include it in the coverage statistics, although if we include
+it in the bias calculation we will be in trouble.  In the
+appropriate asymptotic case will the probability of this
+case go to zero fast enough??)
+
+\subsection{Doublets}
+
+This is based on \cite{good_studies_1979} (\S10, ``The repeat rate''):
+more generally these estimators are (apparently) known
+as ``Good-Turing estimators'', e.g. \cite{mcallester_convergence_2000}:
+\begin{quote}
+  The total probability mass of the words not in the sample is the
+  so-called missing mass. Good showed that the fraction of the sample
+  consisting of words that occur only once in the sample is a nearly
+  unbiased estimate of the missing mass. Here, we give a PAC-style
+  high-probability confidence interval for the actual missing
+  mass. More generally, for $k>0$, we give a confidence interval for the
+  true probability mass of the set of words occuring $k$ times in the
+  sample.
+\end{quote}
+
+There is also other relevant literature in ecology, mostly from
+the point of view of species distribution estimation
+\citep{good_population_1953,chao_estimating_1992} --- maybe
+a good place to go to get procedures for estimating confidence
+intervals \ldots
+
+The sum of doublets, $W=\sum s_i (s_i-1)$, has an
+expected value
+
+$\hat B^2 - \hat B - M(M-1)/W = 0$
+hence $\hat B = 1 \pm \sqrt{1+4 M(M-1)/W}/2$
+<<basefig=TRUE>>=
+Wtab <- table(Wvec)/nsim
+Wvec2 <- as.numeric(names(Wtab))
+Bhat_doublet <- 1 + sqrt(1+4*M*(M-1)/Wvec2)/2
+plot(Wvec2,Bhat_doublet,xlab="doublet statistic",ylab="estimated B")
+@ 
+
+\subsection{time to first collision}
+<<collision1>>=
+Texpfun <- function(B,maxn=4*B) {
+    nvec <- 2:maxn
+    sum(exp(-(nvec*(nvec-1))/(2*B)))
+}
+Bhat_T <- function(tau) {
+    uniroot(function(x) { tt <- Texpfun(x)
+                          ## cat(tau,tt,"\n")
+                          tt-tau },
+            interval=c(tau,1e6))$root
+}
+Ctab <- table(Cvec)/nsim
+Cvec2 <- as.numeric(names(Ctab))
+@ 
+
+<<calc_collision,cache=TRUE>>=
+Bhat_collision <- sapply(Cvec2,Bhat_T)
+@ 
+
+\subsection{Results}
+Plot results for each value of $K$, with spacing on the
+horizontal axis corresponding to the probability distribution
+of $K$ (the lower part of the confidence interval for $K=100$
+is drawn in light blue):
+
+<<coverplot,basefig=TRUE,echo=FALSE>>=
+plotCI(cumsum(Ktab),rfit[,1],li=rfit[,2],ui=rfit[,3],sfrac=0,
+       pch=16,
+       col="red",scol="gray",xlab="K",ylab="estimated log(B)",axes=FALSE)
+brange <- range(rfit[,1],na.rm=TRUE)
+lines(cumsum(Ktab),c(log(Bhat_mm),NA),
+     col="blue")
+axis(side=2)
+Kvals <- as.numeric(names(Ktab))
+axis(side=1,at=cumsum(Ktab),lab=Kvals)
+box()
+abline(h=log(B),col="lightblue")
+segments(1,lboundfun(M),1,par("usr")[4],col="pink")
+@ 
+
+Coverage (nominal value is 0.95):
+<<covercalc>>=
+sum(Ktab*(rfit[,2]<log(B) & rfit[,3]>log(B)),na.rm=TRUE)
+@ 
+Not bad (somewhat conservative).
+
+Compare with fitting $P(B+1)/P(B) = ( 1+ 1/B )^M (1-K/(B+1))=1$
+(probably faster: not really susceptible to closed-form solution either).
+
+<<rKfun>>=
+rKfun <- function(B,K,M) {
+    (1+1/B)^M*(1-K/(B+1))-1
+}
+u1 <- uniroot(rKfun,interval=c(16,1e6),K=16,M=20)
+log(u1$root)
+fitB(16,20)
+@ 
+Actually not quite identical --- precision problems?
+
+Approximations:
+\begin{equation*}
+  \begin{split}
+    \left( 1+ 1/B\right)^M (1-K/(B+1)) & \approx e^{M/B} (1-K/(B+1))
+  \qquad (B, M \gg 1) \\
+  & \approx e^{M/B} (1-K/B) \qquad (B \gg 1)
+\end{split}
+\end{equation*}
+
+Probably a fine approximation, but not sure that we can 
+get much more out of this without a much more extreme
+approximation like $e^{M/B} \approx 1+(M/B)$ --- would
+be nice if we could use Lambert $W$ but I don't see how.
+
+\subsection{Simulation results}
+<<loadsims,echo=FALSE>>=
+load("mosqbatch1.RData")
+## 5-dimensional array of simulation results:
+## it's actually a bit weird in this case because
+## I used aaply() to save the results as an array,
+## but they're actually somewhat irregular (different
+## values of M were used for each B), so na.omit()
+## is necessary ...
+
+
+mm <- na.omit(melt(a0))  ## array to (long) data frame
+## compute relative bias, var, MSE
+mm <- transform(mm,
+          relvalue=ifelse(stat=="bias",value/B,value/B^2))
+Mbreaks <- sort(c(outer(c(1,2,5),c(10,100))))  ## handy logarithmic breaks
+@ 
+
+<<simplot1,echo=FALSE,out.width="\\textwidth",fig.width=8>>=
+(g1 <- ggplot(subset(mm,stat!="var"),
+       aes(x=M,y=relvalue,colour=method,shape=method))+
+    geom_point(alpha=0.5)+geom_line()+
+    facet_grid(stat~B,scales="free",labeller=label_both)+zmargin+
+    scale_x_log10(breaks=Mbreaks)+
+ geom_hline(yintercept=0,colour="gray"))
+@ 
+
+Take out first-collision method and $M>10$:
+
+<<simplot2,echo=FALSE,out.width="\\textwidth",fig.width=8>>=
+## now re-do with a subset of the data
+(g2 <- g1 %+% subset(mm,stat!="var" & method!="collision" & M >10))
+@ 
+
+Zoom in further (doublets only, value $>0$, $M>20$):
+
+<<simplot3,echo=FALSE,out.width="\\textwidth",fig.width=8>>=
+## now re-do with a subset of the data
+mm2 <- subset(mm,stat!="var" & method=="doublets" & M >20 & relvalue>0)
+(g3 <- ggplot(mm2,
+       aes(x=M,y=relvalue,colour=B))+
+    geom_point(alpha=0.5)+geom_line(aes(group=B))+
+    facet_grid(.~stat,labeller=label_both)+zmargin+
+    scale_x_log10(breaks=Mbreaks)+
+ geom_hline(yintercept=0,colour="gray"))
+@ 
+
+The time-to-first-collision method is terrible (although I can't rule
+out the possibility that I made a mistake).  Somewhat to my surprise,
+the doublet method seems to dominate.  There is some severe negative
+bias for particular combinations of low $M$ and intermediate $B$,
+although I should again double-check and make sure that something
+funny isn't going on (also note that the $K=M$ results might be
+excluded from some of the calculations).  I could look in more detail
+at the distributions of $K$ and $W$ for those cases, to see what's
+going on \ldots 
+\begin{itemize}
+  \item Bias reduction methods??  
+  \item Rules of thumb for keeping MSE below some threshold (in terms
+    of $M$ or $M/B$)?
+  \item Why do bias and MSE for MLE/MM have an intermediate peak?
+  \item Should work out confidence intervals for the doublet method
+\end{itemize}
+
+<<echo=FALSE,eval=FALSE>>=
+## obsolete
+Bhat_mle <- exp(na.omit(rfit[,1]))
+B_mean_mle <- sum(Bhat_mle*Ktab[Kvec2<20])
+estres["MLE","bias"] <- bias_mle <- B_mean_mle -B_true
+estres["MLE","var"] <- sum((Bhat_mle-B_mean_mle)^2*Ktab[Kvec2<20])
+estres["MLE","MSE"] <- sum((Bhat_mle-B_true)^2*Ktab[Kvec2<20])
+B_mean_doublet <- sum(Bhat_doublet[-1]*Wtab[-1])
+estres["doublets","bias"] <- bias_doublet <- B_mean_doublet -B_true
+estres["doublets","var"] <- sum((Bhat_doublet[-1]-B_mean_doublet)^2*Wtab[-1])
+estres["doublets","MSE"] <- sum((Bhat_doublet[-1]-B_true)^2*Wtab[-1])
+##
+B_mean_collision <- sum(Bhat_collision*Ctab)
+estres["collision","bias"] <- bias_collision <- B_mean_collision -B_true
+estres["collision","var"] <- sum((Bhat_collision-B_mean_collision)^2*Ctab)
+estres["collision","MSE"] <- sum((Bhat_collision-B_true)^2*Ctab)
+@ 
+
+\section{Probability of collision}
+As before, we know that $P(K=M)$ is $\prod_{i=0}^{M-1} (B-i)/B$.
+This is useful in and of itself.  If we have a preliminary
+estimate of the bird population size, 
+how big do we have to make the sample
+size $M$ to get a specified probability of collision?
+<<collisionprob>>=
+collision_prob <- function(M,B,inverse=FALSE,log=FALSE) {
+    r <- sum(log(B-seq(0,M-1)))-M*log(B)
+    if (inverse) {
+        if (log) r else exp(r)
+    } else {
+        r2 <- 1-exp(r)
+        if (log) log(r2) else r2
+    }
+}
+@ 
+Approximation for $M \ll B$ ?
+
+<<collision_approx,echo=FALSE>>=
+Mvec <- round(10^seq(1,log10(500),length=51))
+Bvec <- round(10^seq(3,5,by=0.5))
+dd <- expand.grid(M=Mvec,B=Bvec)
+dd$cprob <- apply(dd,1,function(x) collision_prob(x[1],x[2]))
+ggplot(dd,aes(M,cprob,colour=factor(B))) +
+          geom_line()+
+          scale_x_log10(breaks=c(10,20,50,100,200,500))+
+          labs(x="Sample size",y="Prob of collision")
+@ 
+
+
+\section{Lower bound on $B$ when $K=M$}
+
+This is a little dodgy, but: when $K=M$, the MLE $\hat B$
+goes to infinity, because $-M \log B + \log B! - \log (B-K)!$
+is maximized as $B \to \infty$.
+
+<<lplot1,echo=FALSE>>=
+dd2 <- expand.grid(K=c(90,95,99,100),
+                   logB=seq(log(100),15,length=51))
+dd2$nll <- with(dd2,nllfun(logB,M=100,K=K))
+ggplot(dd2,aes(x=logB,y=nll,colour=factor(K)))+
+    geom_line()+
+    labs(x="log(B)",y="Negative log-likelihood")
+@ 
+
+However, we can still try to solve for the case where 
+$-\log L=\chi^2_1(0.975)/2=1.92$ to get a lower bound.
+For example, if $M=K=100$,
+<<lbound0>>=
+lobound <- uniroot(function(x) nllfun(x,K=100,M=100)-1.92,
+   interval=c(log(101),25))$root
+@ 
+So in this case (for $M=100$, $K=100$) 
+our 95\% lower bound on the population size
+is $B=\Sexpr{floor(exp(lobound))}$ (this leaves
+open the question of whether profile confidence
+limits are reasonable in this case).
+
+Here's a more general result:
+<<lbound>>=
+lboundfun <- function(M) {
+    uniroot(function(x) nllfun(x,K=M,M=M)-1.92,
+            interval=c(log(M+0.001),25))$root
+}
+Mvec <- round(10^seq(1,4,length=31))
+dd3 <- data.frame(M=Mvec,lo=exp(sapply(Mvec,lboundfun)))
+ggplot(dd3,aes(M,lo))+geom_line()+
+    scale_y_log10(breaks=10^(2:7))+
+    scale_x_log10(breaks=10^(1:4))+
+    labs(x="sample size",y="lower bound on population size")
+@ 
+This is a perfectly boring graph, with log-log slope nearly
+exactly 2.0  --- a quadratic relationship between the lower bound and the size
+of $M$ (this should be easy to work out analytically, or to argue
+heuristically?)
+
+\section{To do}
+
+\begin{itemize}
+  \item Theoretical justification for using MLE, and
+    profile likelihood CI: in what limit are we working --- what
+    gets large (i.e. $B$, $M$, $K$, $s_0$)?  In general we can
+    expect $B \approx s_0 \gg M \approx K$ \ldots  Can we show
+    that something converges appropriately to give us 
+    asymptotic consistency, $\chi^2$ distribution of deviance,
+    etc.?  
+  \item Get the theoretical distribution
+    of $K$ (hypergeometric??), which might allow us to compute bias
+    for particular cases by brute force, and make a case about
+    asymptotic stuff?  (If we know the distribution of $K$ then
+    we also know the distribution of $\hat B$, by inversion \ldots)
+  \item Could probably get confidence limits considerably quicker
+    by root-finding rather than using the general \code{mle2}
+    machinery?
+  \item Might be able to do more exact/more justifiable confidence
+    limits on $B$ by evaluating the spectrum of probabilities of
+    no-collision as a function of $B$?
+\end{itemize}
+
+\section{Data (!!)}
+
+OK, now we actually have a little bit of information about
+plausible sizes of $B$, $M$ \ldots
+
+The actual $B$ values (number of American robins at a site)
+are thought to be in the range 10--40
+(much smaller than I was imagining).
+
+Some values of $M$ from three sites across a range of years:
+<<echo=FALSE>>=
+(mdat <- data.frame(site=rep(c("Foggy Bottom","Baltimore","NMNH"),
+                   c(4,2,1)),
+                   year=c(2004,2006,2008,2011,2008,2010,2004),
+                   M=c(19,11,13,17,40,18,14)))
+@ 
+
+So if the local bird populations are really as small 
+as they are thought to be, we should be very surprised
+if there are no collisions: here are the collision probabilities
+(i.e. the probability that at least one bird is sampled by
+more than one mosquito) for $B=40$:
+<<small_collision>>=
+round(sapply(mdat$M,collision_prob,B=40),3)
+@ 
+(The probability of a collision with $B=M=40$ is not
+exactly 1, but it's very close: the probability of
+\emph{not} having a collision is \Sexpr{collision_prob(40,40,inverse=TRUE)}.)
+
+It's not clear how much power we have to distinguish different
+effective population sizes from these data (i.e. we could tell
+if they were much larger, but not necessarily if they're much
+smaller).  For example, here are the expected $K$ distributions
+from an effective population size of $B=40$ (black) and $B=20$
+(red):
+
+<<expkb,basefig=TRUE,echo=FALSE>>=
+nsim <- 1000
+Kvec1 <- table(replicate(nsim,Kfun(B=40,M=20)))/nsim
+Kvec2 <- table(replicate(nsim,Kfun(B=20,M=20)))/nsim
+plot(Kvec1,xlim=c(8,20),ylim=c(0,0.3))
+points(as.numeric(names(Kvec2)),Kvec2,col=2,type="h")
+@ 
+
+For example, if we were trying to distinguish the two
+hypotheses that $B=20$ vs. $B=40$:
+
+<<expkb2,basefig=TRUE,echo=FALSE>>=
+Kcomb <- sort(unique(c(as.numeric(names(Kvec1)),
+                       as.numeric(names(Kvec2)))))
+Kcomb2 <- setNames(rep(0,length(Kcomb)),Kcomb)
+Kvec1c <- Kcomb2
+Kvec1c[names(Kvec1)] <- Kvec1
+Kvec2c <- Kcomb2
+Kvec2c[names(Kvec2)] <- Kvec2
+plot(Kcomb,Kvec2c/(Kvec1c+Kvec2c),xlab="K",ylab="prob(B=20)")
+u <- par("usr")
+rect(u[1],u[3],u[2],0.05,col=rgb(0,0,0,alpha=0.2),border=NA)
+rect(u[1],0.95,u[2],u[4],col=rgb(0,0,0,alpha=0.2),border=NA)
+@ 
+If $B$ were really 20, we would only have
+a power of \Sexpr{sum(Kvec2c[Kcomb<=12])} to detect the difference.
+
+\section{To do}
+\begin{itemize}
+\item incorporate stuff from mbrs talk
+\item estimates
+\item confidence intervals for doublets?
+\item hierarchical models?  combinations?
+\item stuff from Steve Walker, JD
+\end{itemize}
+
+\section{Junk}
+
+\subsection{Derivatives of log-likelihood}
+If we wanted to, we would in principle be able to 
+use $dL/d(\log B)=-M + \psi(B) B - \psi(B-K) B$
+where $\psi$ is the digamma function (although this
+probably isn't worth it because we can likely solve
+all our problems faster by root-finding rather than
+minimization).
+
+<<gradjunk>>=
+nllgrad <- function(logB,K,M) {
+    B <- exp(logB)
+    M - digamma(B)*B+digamma(B-K)*B
+}
+grad(function(x) nllfun(x,K=98,M=100),x=7)
+nllgrad(7,98,100)
+grad(function(x) nllfun(x,K=7,M=4),x=3)
+nllgrad(3,7,4)
+@ 
+(Not quite right yet.)
+
+\subsection{Closed-form solution for $\mbox{Prob}(K)$}
+
+LB thinks this is difficult.
+
+Gessel solution for $K$ (Bose-Einstein??):
+$\left( \binom{B}{B-K} \binom{M-1}{K-1} \right) / \binom{B+M-1}{M}$
+<<gesselK>>=
+## dhyper(B-K,B,M-1,M)
+myhyper <- function(K,M,B,log=FALSE) {
+    r <- lchoose(B,B-K)+lchoose(M-1,K-1)-lchoose(B+M-1,M)
+    if (log) r else exp(r)
+}
+## R notation:
+## H(x,m,n,k) -> choose(m,x) choose(n,k-x) / choose(m+n,k)
+## K=B-s_0
+## x=s0=B-K; m=B; n=M-1; k=M; m+n=B+M-1; k-x =M-s0
+@
+
+\section{More on Good-Turing}
+
+Wikipedia, etc.
+
+\bibliography{mosq}
+\end{document}
