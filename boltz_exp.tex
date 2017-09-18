@@ -1,0 +1,59 @@
+\documentclass{article}
+\usepackage{amsmath}
+
+\newcommand{\multinom}{{\cal M}}
+
+\begin{document}
+
+In the main document I say
+
+\begin{quote}
+Then the likelihood of observing an occupancy spectrum $S$ is
+\begin{equation}
+P(S|B,M) =  \frac{1}{B^M} \multinom(S) \multinom(V)
+\end{equation}
+where $\multinom(V)$ can also be written as
+$M!/\prod_i (i!)^{s_i}$.
+\end{quote}
+
+Where does this come from?
+
+\begin{itemize}
+\item The total number of ways in which $M$ (\emph{distinct})
+mosquitos can bite $B$ birds is $B^M$. Each bird could be bitten
+by any combination of mosquito $a$, mosquito $b$, mosquito $c$ 
+\ldots e.g. for $B=3$, $M=2$, we have 
+$\{\{ab,0,0\}, \{0,ab,0\}, \{0,0,ab\}, \{a,0,b\},\{a,b,0\},
+\{0,a,b\},\{0,b,a\},\{b,0,a\},\{b,a,0\}$ (9 combinations).
+(But easier to see this by assigning birds to mosquitos. Each
+mosquito must bite exactly one of the $B$ birds, and birds \emph{can}
+be bitten more than once: for this we have $\{A,A\},\{A,B\},\{A,C\},
+\{B,A\}, \ldots$.)
+\item the total number of configurations of number of times each
+bird is bitten is $\multinom(V)$, because the total number of permutations
+of $M$ objects ($\sum v_i$) is $M!$, and the number of ways of
+reordering those within the particular partition $V$ is
+$\prod v_i!$
+\item since this represents one particular ordering (e.g. in 
+$V=\{3,1,1,0\}$ the bird bitten 3 times could be any one of the
+4 birds, as could the bird bitten 0 times), we also have to allow
+for reorderings of birds. This is $multinom(S)$, because we have
+$B=\sum s_i$ objects, the total number of permutations is $B!$,
+and the number of ways of reordering them within the partition $S$
+is $\prod s_i!$.
+\end{itemize}
+
+Let's take the example from the document. $B=4$, $M=5$, 
+$V=\{3,1,1,0\}$, $S=\{1,2,0,1\}$.
+
+\begin{equation*}
+\begin{split}
+P(S|B,M) & =  \frac{1}{B^M} \multinom(S) \multinom(V) \\
+         & =  \frac{1}{4^5} \multinom(\{3,1,1,0\}) \multinom(\{1,2,0,1\}) \\
+         & =  \frac{1}{1024} \cdot 20 \cdot 12 \\
+         & =  \frac{15}{64} = 0.234375.
+\end{split}
+\end{equation*}
+I don't really want to write down the 240/1024 configurations!
+\end{document}
+
