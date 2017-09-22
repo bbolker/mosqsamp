@@ -18,6 +18,8 @@
 
 \textbf{Version: \Sexpr{date()}}
 
+put some text here
+
 <<setup,echo=FALSE,warning=FALSE,message=FALSE>>=
 library(knitr)
 opts_chunk$set(fig.height=4,fig.width=5,
