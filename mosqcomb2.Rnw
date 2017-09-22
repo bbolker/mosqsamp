@@ -17,7 +17,7 @@
 \maketitle
 
 \textbf{Version: \Sexpr{date()}}
-HELLO ITS JORDYN
+
 <<setup,echo=FALSE,warning=FALSE,message=FALSE>>=
 library(knitr)
 opts_chunk$set(fig.height=4,fig.width=5,
