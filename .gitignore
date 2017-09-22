@@ -38,3 +38,4 @@ vignettes/*.pdf
 *.bbl
 *.out
 *.blg
+.Rproj.user
