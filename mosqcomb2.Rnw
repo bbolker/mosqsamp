@@ -5,6 +5,7 @@
 \usepackage{amsmath}
 \usepackage{natbib}
 \newcommand{\code}[1]{{\tt #1}}
+\newcommand{\fixme}[1]{{\textbf #1}}
 \newcommand{\multinom}{{\cal M}}
 \date{\today}
 \title{Mosquito combinatorics (occupancy spectrum)}
@@ -46,7 +47,7 @@ library(numDeriv)
 @ 
 \section{Introduction}
 Suppose $B$=number of birds (bins); $M$=number of mosquitoes (balls).
-$V$ is (unordered) occupancy of a particular configuration
+$V$ is the (unordered) occupancy of a particular configuration
 (e.g. $\{3,1,1,0\}$ means one bird sampled three times, two
 birds sampled once, one bird not sampled);
 $S=\{s_i\}$=occupancy spectrum (number of birds sampled $i$ times,
@@ -54,10 +55,10 @@ e.g. $S=\{1,2,0,1\}$ for the previous example).
 The number of birds sampled at least once is 
 $K=B-s_0=B-\sum_{i=1} s_i$.
 
-We have $\sum s_i=B$, $\sum i s_i = M$.
+We have $|V| = \sum s_i=B$;  $\sum v_i = \sum i s_i = M$.
 
 Define the multinomial coefficient $\multinom(S) \equiv 
-\binom{(\sum s_i)!}{\prod s_i!}$.
+\binom{(\sum s_i)!}{\prod s_i!}$ \fixme{check? frac, not binom?}
 
 Then the likelihood of observing an occupancy spectrum $S$ is
 \begin{equation}
