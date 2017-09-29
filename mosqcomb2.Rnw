@@ -237,6 +237,9 @@ Cfun <- function(B,ssize=2*B) {
     min(which(duplicated(ss)))
 }
 @ 
+
+\fixme{use set.seed()? fix downstream stuff so this part
+can be run out of order?}
 <<simsetup>>=
 nsim <- 1000; M <- 20; B <- 40
 Kvec <- replicate(nsim,Kfun(B,M))
