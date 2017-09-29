@@ -1,5 +1,5 @@
 \documentclass{article}
-\usepackage{sober}
+%\usepackage{sober}
 \usepackage{hyperref}
 \usepackage[english]{babel}
 \usepackage{amsmath}
