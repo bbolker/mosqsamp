@@ -70,12 +70,18 @@ collision_prob <- function(M,B,inverse=FALSE,log=FALSE) {
 
 ## method of moments estimator for K
 Bhat_approx <- function(K,M,type=c("frac","exp"),upper=1e7) {
-    type <- match.arg(type)
+    type <- match.arg(type) ## "frac" by default
     if (K>=M) stop("K must be < M")
-    tmpf <- if (type=="exp") function(B) B*(1-exp(-M/B))-K else
-    function(B) B*(1-(1-(1/B))^M)-K
+    tmpf <- if (type=="exp") {
+                function(B) B*(1-exp(-M/B))-K
+            } else {
+                function(B) B*(1-(1-(1/B))^M)-K
+            }
     r <- try(uniroot(tmpf,interval=c(K+0.001,upper))$root)
-    if (inherits(r,"try-error")) NA else r
+    if (inherits(r,"try-error")) {
+        r <- NA
+    }
+    return(r)
 }
 
 ## expected time to first collision

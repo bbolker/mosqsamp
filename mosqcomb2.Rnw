@@ -8,6 +8,7 @@
 \newcommand{\fixme}[1]{{\textbf #1}}
 \newcommand{\multinom}{{\cal M}}
 \date{\today}
+\newcommand{\fixme}[1]{\textbf{FIXME: #1}}
 \title{Mosquito combinatorics (occupancy spectrum)}
 \author{Ben Bolker, with help from Leonid Bogachev,
   Ethan Bolker, and Ira Gessel}
@@ -249,6 +250,7 @@ plot(Ktab)
 Kvec2 <- as.numeric(names(Ktab))
 @ 
 
+\fixme{store SD and RMSE rather than var and MSE?}
 <<estres>>=
 estres <- matrix(NA,nrow=4,ncol=3,
                  dimnames=list(c("MM","MLE","doublets","collision"),
