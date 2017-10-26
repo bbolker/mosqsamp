@@ -1,0 +1,225 @@
+---
+title: "Matrix Simulations"
+author: "Jordyn Walton"
+date: "October 7, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+Everything before
+```{r}
+##Drawing a multinomial sample
+rfun <- function(B,M) { c(rmultinom(1,size=M,prob=rep(1,B))) }
+##A function to tabulate $S$ and optionally collapse the result
+#to a dot-separated string:
+
+sfun <- function(B,M,collapse=TRUE) {
+    tt <- table(factor(rfun(B,M),levels=0:M))
+    if (!collapse) tt else paste(tt,collapse=".")
+}
+
+#<<doublet_calc>>=
+Wfun <- function(B,M) {
+    r <- rfun(B,M)
+    mean(r*(r-1))
+}
+
+#<<first_collision>>=
+Cfun <- function(B,ssize=2*B) {
+    ss <- sample(B,size=ssize,replace=TRUE)
+    min(which(duplicated(ss)))
+}
+
+Kfun <- function(B,M) {
+    unname(B-sfun(B,M,collapse=FALSE)[1])
+}
+
+#simsetup
+nsim <- 1000; M <- 20; B <- 40
+Kvec <- replicate(nsim,Kfun(B,M))
+Wvec <- replicate(nsim,Wfun(B,M))
+Cvec <- replicate(nsim,Cfun(B))
+
+
+
+```
+
+
+
+Produces the actual graph:
+```{r}
+Ktab <- table(Kvec)/nsim
+Ktab
+c(Ktab)
+plot(Ktab)
+Kvec2 <- as.numeric(names(Ktab))
+Kvec2
+```
+
+###Next step: Matrix of ktab
+
+Run nsim for a fixed value of M and vary the value of B.
+How will the Ktab table and corresponding graph change?
+
+Begin with a value of say, B = 10:
+
+```{r}
+#simsetup
+nsim <- 1000; M <- 20; B <- 10
+Kvec <- replicate(nsim,Kfun(B,M))
+Ktab <- table(Kvec)/nsim
+Ktab
+plot(Ktab)
+Kvec2 <- as.numeric(names(Ktab))
+Kvec2
+
+```
+
+
+Next B = 20,
+
+```{r}
+#simsetup
+nsim <- 1000; M <- 20; B <- 20
+Kvec <- replicate(nsim,Kfun(B,M))
+Ktab <- table(Kvec)/nsim
+Ktab
+plot(Ktab)
+Kvec2 <- as.numeric(names(Ktab))
+Kvec2
+
+```
+
+Next B = 30,
+
+```{r}
+#simsetup
+nsim <- 1000; M <- 20; B <- 30
+Kvec <- replicate(nsim,Kfun(B,M))
+Ktab <- table(Kvec)/nsim ##each entry here is P(K given B)
+Ktab
+plot(Ktab)
+Kvec2 <- as.numeric(names(Ktab))
+Kvec2
+
+```
+
+Next B = 50,
+
+```{r}
+#simsetup
+nsim <- 1000; M <- 20; B <- 50
+Kvec <- replicate(nsim,Kfun(B,M))
+Ktab <- table(Kvec)/nsim
+Ktab
+plot(Ktab)
+Kvec2 <- as.numeric(names(Ktab))
+Kvec2
+
+```
+
+
+```{r}
+#blueprint of a function creating a matrix
+
+#arguments of the function should be
+nsim<- 10000
+M<- 5
+BPossibles<-10:20 #this could be divided into a lower and upper bound of B arguments, (by default) would increment by 1
+PofB <- rep(1/length(BPossibles),length(BPossibles))  #this could be the default value of PB, by default we are assuming a uniform discrete distribution but this is simplistic assumption. Consider different distributions in later versions
+
+##Process
+
+#form matrix of size dim(B) x All possible K values 1:M
+KgivenB = matrix(0,length(BPossibles),M)
+
+# run simulation functions and assign to ktab
+Kvec <- replicate(nsim,Kfun(B,M))
+Ktab <- table(Kvec)/nsim
+
+k <- names(Ktab)
+k
+l <- as.integer(k)
+l
+Ktab
+Ktab[k]
+KgivenB[1,l] = Ktab[k]
+KgivenB
+
+##trying instead with a for loop
+
+for (i in 1:length(BPossibles)){
+  B <- BPossibles[i]
+  Kvec <- replicate(nsim,Kfun(B,M))
+  Ktab <- table(Kvec)/nsim
+  k <- names(Ktab)
+  l <- as.integer(k)
+  KgivenB[i,l]=Ktab[k]
+}
+
+KgivenB
+##Produce vector of P(K)
+PofK = PofB %*% KgivenB
+PofK
+
+PofB
+
+
+##Extra Step of Multiplying each entry in a column
+
+BgivenK = matrix(0,length(BPossibles),M)
+
+BgivenK[,2] <- PofB*KgivenB[,2]/PofK[,2]
+for (j in 1:M) {
+  BgivenK[,j]<-PofB*KgivenB[,j]/PofK[,j]
+}
+BgivenK
+
+```
+
+
+```{r}
+
+#Let's define it as a function
+BgivenKfun <- function(bLower=10,bUpper=20,M=20,nsim=10000){
+  BPossibles <-bLower:bUpper
+  PofB<-rep(1/length(BPossibles),length(BPossibles)) #P(B) vector
+  
+  #form empty matrix with M columns and rows corresponding to all possible values of B
+  KgivenB = matrix(0,length(BPossibles),M,dimnames=list(B=BPossibles,K=1:M))
+  #run simulation and assign to each row
+  for (i in 1:length(BPossibles)){
+    B<-BPossibles[i]
+    Kvec <- replicate(nsim,Kfun(B,M))
+    Ktab <-table(Kvec)/nsim
+    k <- names(Ktab)
+    l<- as.integer(k)
+    KgivenB[i,l] = Ktab[k]
+  }
+  PofK = PofB %*% KgivenB
+  
+  BgivenK = matrix(0,length(BPossibles),M,dimnames=list(B=BPossibles,K=1:M))
+
+  for (j in 1:M) {
+    BgivenK[,j]<-PofB*KgivenB[,j]/PofK[,j]
+  }
+  BgivenK
+}
+
+tryout <- BgivenKfun()
+tryout
+
+
+```
+
+One last thing: attempt to plot
+```{r}
+plot(tryout[,11])
+#ggplot(try[,15])
+
+
+```
+
