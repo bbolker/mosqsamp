@@ -103,20 +103,21 @@ of each bird.
 
 This can be done using \code{sample()} and then tabulating the results:
 <<sim1>>=
-rfun0 <- function(B,M) table(factor(sample(1:B,size=M,replace=TRUE),levels=1:B))
+vfun0 <- function(B,M) table(factor(sample(1:B,size=M,replace=TRUE),levels=1:B))
+#Result is Vi -> unordered occupancy configuration
 @ 
 (if I omitted the \code{factor(...,levels=1:B)} statement
 I would get a table without zeros/unsampled birds included).
 
 Equivalently one can draw a multinomial sample:
 <<sim2>>=
-rfun <- function(B,M) { c(rmultinom(1,size=M,prob=rep(1,B))) }
+vfun <- function(B,M) { c(rmultinom(1,size=M,prob=rep(1,B))) }
 @ 
 
 It turns out the latter is much faster, as indicated
 by the following benchmark:
 <<mbenchmark,echo=FALSE,cache=TRUE>>=
-benchmark(rfun(1000,50),rfun0(1000,50),
+benchmark(vfun(1000,50),vfun0(1000,50),
           columns = c("test", "replications", "elapsed", "relative"),
           replications=1000)
 @ 
@@ -125,15 +126,15 @@ We may want to collapse these samples to occupancy spectra, e.g.
 <<simt>>=
 set.seed(101)
 B <- 7; M <- 5
-s <- rfun(B,M)
-table(factor(s,levels=0:M))
+v <- vfun(B,M)
+table(factor(v,levels=0:M))
 @ 
 
 A function to tabulate $S$ and optionally collapse the result
 to a dot-separated string:
 <<sim3>>=
 sfun <- function(B,M,collapse=TRUE) {
-    tt <- table(factor(rfun(B,M),levels=0:M))
+    tt <- table(factor(vfun(B,M),levels=0:M))
     if (!collapse) tt else paste(tt,collapse=".")
 }
 @ 
@@ -225,7 +226,7 @@ Kfun <- function(B,M) {
 Compute doublets:
 <<doublet_calc>>=
 Wfun <- function(B,M) {
-    r <- rfun(B,M)
+    r <- vfun(B,M)
     mean(r*(r-1))
 }
 @ 
