@@ -357,7 +357,7 @@ the point of view of species distribution estimation
 a good place to go to get procedures for estimating confidence
 intervals \ldots
 
-The sum of doublets, $W=\sum s_i (s_i-1)$, has an
+The sum of doublets, $W=\sum v_i (v_i-1)$, (where $V = \{v_i\} = $ the unordered occupancy of birds) has an
 expected value
 
 $\hat B^2 - \hat B - M(M-1)/W = 0$

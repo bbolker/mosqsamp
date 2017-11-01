@@ -68,7 +68,7 @@
 
 \maketitle
 
-\textbf{Version: Sat Oct 28 11:57:18 2017}
+\textbf{Version: Wed Nov  1 16:05:39 2017}
 
 
 
@@ -467,7 +467,12 @@ We can compute $P(B+1)/P(B)$ (and get a relatively simple
 expression that we try to equate to 1), or by brute force:
 
 \begin{knitrout}
-\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+
+
+{\ttfamily\noindent\color{warningcolor}{\#\# Warning: package 'bbmle' was built under R version 3.2.5}}
+
+{\ttfamily\noindent\color{warningcolor}{\#\# Warning: replacing previous import by 'stats::na.omit' when loading 'bbmle'}}\end{kframe}
 \includegraphics[width=0.8\textwidth]{figure/unnamed-chunk-1-1} 
 
 \end{knitrout}
@@ -538,7 +543,7 @@ the point of view of species distribution estimation
 a good place to go to get procedures for estimating confidence
 intervals \ldots
 
-The sum of doublets, $W=\sum s_i (s_i-1)$, has an
+The sum of doublets, $W=\sum v_i (v_i-1)$, (where $V = \{v_i\} = $ the unordered occupancy of birds) has an
 expected value
 
 $\hat B^2 - \hat B - M(M-1)/W = 0$
