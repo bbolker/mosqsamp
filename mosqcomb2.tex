@@ -55,7 +55,7 @@
 \usepackage{amsmath}
 \usepackage{natbib}
 \newcommand{\code}[1]{{\tt #1}}
-\newcommand{\fixme}[1]{{\textbf #1}}
+%\newcommand{\fixme}[1]{{\textbf #1}}
 \newcommand{\multinom}{{\cal M}}
 \date{\today}
 \newcommand{\fixme}[1]{\textbf{FIXME: #1}}
@@ -68,7 +68,7 @@
 
 \maketitle
 
-\textbf{Version: Wed Nov  1 16:05:39 2017}
+\textbf{Version: Sat Nov 18 15:16:42 2017}
 
 
 
@@ -378,8 +378,8 @@ Compute doublets:
 \definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
 \begin{alltt}
 \hlstd{Wfun} \hlkwb{<-} \hlkwa{function}\hlstd{(}\hlkwc{B}\hlstd{,}\hlkwc{M}\hlstd{) \{}
-    \hlstd{r} \hlkwb{<-} \hlkwd{vfun}\hlstd{(B,M)}
-    \hlkwd{mean}\hlstd{(r}\hlopt{*}\hlstd{(r}\hlopt{-}\hlnum{1}\hlstd{))}
+    \hlstd{v} \hlkwb{<-} \hlkwd{vfun}\hlstd{(B,M)}
+    \hlkwd{sum}\hlstd{(v}\hlopt{*}\hlstd{(v}\hlopt{-}\hlnum{1}\hlstd{))}
 \hlstd{\}}
 \end{alltt}
 \end{kframe}
@@ -543,17 +543,20 @@ the point of view of species distribution estimation
 a good place to go to get procedures for estimating confidence
 intervals \ldots
 
+Letting $p_1,...p_B$ be the probabilities of each bird occuring within the sample, if $p_1=...=p_B = 1/B$ (the equally likely or equiprobability assumption), the repeat rate reduces to a expression only involving the parameter, $B$.
+
 The sum of doublets, $W=\sum v_i (v_i-1)$, (where $V = \{v_i\} = $ the unordered occupancy of birds) has an
 expected value
 
-$\hat B^2 - \hat B - M(M-1)/W = 0$
-hence $\hat B = 1 \pm \sqrt{1+4 M(M-1)/W}/2$
+$W = \frac{\{M(M-1)\}}{\hat{B}}$
+hence $\hat{B} = W / \{M(M-1)\}$
+
 \begin{knitrout}
 \definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
 \begin{alltt}
 \hlstd{Wtab} \hlkwb{<-} \hlkwd{table}\hlstd{(Wvec)}\hlopt{/}\hlstd{nsim}
 \hlstd{Wvec2} \hlkwb{<-} \hlkwd{as.numeric}\hlstd{(}\hlkwd{names}\hlstd{(Wtab))}
-\hlstd{Bhat_doublet} \hlkwb{<-} \hlnum{1} \hlopt{+} \hlkwd{sqrt}\hlstd{(}\hlnum{1}\hlopt{+}\hlnum{4}\hlopt{*}\hlstd{M}\hlopt{*}\hlstd{(M}\hlopt{-}\hlnum{1}\hlstd{)}\hlopt{/}\hlstd{Wvec2)}\hlopt{/}\hlnum{2}
+\hlstd{Bhat_doublet}\hlkwb{<-}\hlstd{M}\hlopt{*}\hlstd{(M}\hlopt{-}\hlnum{1}\hlstd{)}\hlopt{/}\hlstd{Wvec2}
 \hlkwd{plot}\hlstd{(Wvec2,Bhat_doublet,}\hlkwc{xlab}\hlstd{=}\hlstr{"doublet statistic"}\hlstd{,}\hlkwc{ylab}\hlstd{=}\hlstr{"estimated B"}\hlstd{)}
 \end{alltt}
 \end{kframe}
