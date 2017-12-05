@@ -528,6 +528,59 @@ estres["collision","var"] <- sum((Bhat_collision-B_mean_collision)^2*Ctab)
 estres["collision","MSE"] <- sum((Bhat_collision-B_true)^2*Ctab)
 @ 
 
+\section{Distributions of B given K or W}
+
+
+Using simulations we can given a hypothetical distribution of K values that will arise from a certain value of B. For instance,
+
+<<Ktab2,basefig=TRUE>>=
+plot(Ktab)
+@
+
+$$P(B|K,M) = \frac{P(B) P(K|B,M)}{P(K)}$$
+
+Using the below function, we can use Bayes' theorem to provide a probability distribution of B based on the vales of K. $P(B)$ is assumed to be uniformly distributed in the range of bLower and bUpper.
+
+<<BDistributionGivenK>>=
+BgivenKfun <- function(bLower=10,bUpper=20,M=20,nsim=1000){
+  BPossibles <-bLower:bUpper
+  PofB<-rep(1/length(BPossibles),length(BPossibles)) #P(B) vector
+  
+  #form empty matrix with M columns and rows corresponding to all possible values of B
+  KgivenB = matrix(0,length(BPossibles),M,dimnames=list(B=BPossibles,K=1:M))
+  #run simulation and assign to each row
+  for (i in 1:length(BPossibles)){
+    B<-BPossibles[i]
+    Kvec <- replicate(nsim,Kfun(B,M))
+    Ktab <-table(Kvec)/nsim
+    k <- names(Ktab)
+    l<- as.integer(k)
+    KgivenB[i,l] = Ktab[k]
+  }
+  PofK = PofB %*% KgivenB
+  
+  BgivenK = matrix(0,length(BPossibles),M,dimnames=list(B=BPossibles,K=1:M))
+
+  for (j in 1:M) {
+    BgivenK[,j]<-PofB*KgivenB[,j]/PofK[,j]
+  }
+  BgivenK
+}
+@
+
+Then the distribution for $K = 16$ when the range of possible birds is from 10 to 30 is given by...
+
+<<ex>>=
+example<-BgivenKfun(bLower=10,bUpper=30)
+plot(10:30,example[,16],xlab="B", ylab="frequency")
+
+@
+
+
+This can be done analagously using the doublet method. Instead
+
+$$P(B|W,M) = \frac{P(B) P(W|B,M)}{P(W)}$$
+
 \section{Probability of collision}
 As before, we know that $P(K=M)$ is $\prod_{i=0}^{M-1} (B-i)/B$.
 This is useful in and of itself.  If we have a preliminary
